@@ -1,0 +1,22 @@
+{% extends 'layout.html' %}
+
+{% block head %}
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.2/styles/railscasts.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.2/highlight.min.js"></script>
+{% endblock %}
+
+{% block foot %}
+<script>
+    hljs.configure({ languages: [] }); // disable language auto detection
+    hljs.initHighlightingOnLoad();
+</script>
+{% endblock %}
+
+{% block main %}
+<article class="article">
+    <h2 class="article-title">{{ post.title }}</h2>
+    <div class="content">
+        {{ post.content | safe }}
+    </div>
+</article>
+{% endblock %}

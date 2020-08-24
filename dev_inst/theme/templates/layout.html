@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <meta http-equiv="cleartype" content="on">
+
+  {% block head %}{% endblock %}
+
+  <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+
+<body>
+
+  <div class="container">
+    <header class="row header">
+      {% include 'header.html' ignore missing %}
+    </header>
+
+    <div class="row body">
+      <div class="row page">
+        <main class="column main">
+          {% block main %}{% endblock %}
+        </main>
+      </div>
+    </div>
+
+    <footer class="row footer">
+      {% include 'footer.html' ignore missing %}
+    </footer>
+  </div>
+
+  {% block foot %}{% endblock %}
+</body>
+
+</html>
