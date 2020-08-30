@@ -1,16 +1,18 @@
 import os
 import json
 from datetime import date, datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 from markdown import Markdown
 from mdx_gfm import GithubFlavoredMarkdownExtension
-from flask import Flask, render_template, abort, current_app
+from flask import Flask, render_template, abort, current_app, request, redirect, url_for
 
 instance_path = os.getenv("INSTANCE_PATH", os.getcwd())
 template_folder = os.path.join(instance_path, "theme", "templates")
 static_folder = os.path.join(instance_path, "theme", "static")
+
+POSTS_PER_PAGE_ON_INDEX = 5
 
 app = Flask(
     __name__,
@@ -21,7 +23,7 @@ app = Flask(
 
 markdown = Markdown(extensions=[GithubFlavoredMarkdownExtension()])
 
-site: dict = {}
+site: Dict[str, Any] = {}
 try:
     with open(os.path.join(instance_path, "site.json"), "r", encoding="utf-8") as f:
         site = json.load(f)
@@ -30,20 +32,22 @@ except FileNotFoundError:
 
 
 @app.context_processor
-def inject_site_object():
+def inject_site_object() -> Dict[str, Any]:
     return {"site": site}
 
 
-def load_post(
-    year: int, month: int, day: int, name: str, *, convert_content: bool = True
-) -> Optional[dict]:
-    post_file = f"{year:0>4d}-{month:0>2d}-{day:0>2d}-{name}.md"
+def load_post(file: str, *, meta_only: bool = False) -> Optional[Dict[str, Any]]:
+    try:
+        year, month, day, name = os.path.splitext(file)[0].split("-", maxsplit=3)
+        year, month, day = int(year), int(month), int(day)
+    except ValueError:
+        return None
     yml_fm = ""
     md_content = ""
     try:
         with open(
-            os.path.join(current_app.instance_path, "posts", post_file),
-            "r",
+            os.path.join(current_app.instance_path, "posts", file),
+            mode="r",
             encoding="utf-8",
         ) as f:
             firstline = f.readline().strip()
@@ -53,10 +57,10 @@ def load_post(
                 md_content = remained.strip()
             else:
                 md_content = "\n\n".join([firstline, remained])
-        post = {
+        post: Dict[str, Any] = {
+            "file": file,
             "title": name,
             "url": f"/post/{year:0>4d}/{month:0>2d}/{day:0>2d}/{name}",
-            "content": markdown.convert(md_content) if convert_content else None,
         }
         post.update(yaml.load(yml_fm, Loader=yaml.FullLoader))
         if "created" not in post:
@@ -67,12 +71,16 @@ def load_post(
         for k in ("categories", "tags"):
             if isinstance(post.get(k), str):
                 post[k] = [post[k]]
+        if not meta_only:
+            post["content"] = markdown.convert(md_content)
         return post
     except FileNotFoundError:
         return None
 
 
-def load_posts(sort_key: str = "created", sort_reverse: bool = True) -> List[dict]:
+def load_posts(
+    *, sort_key: str = "created", sort_reverse: bool = True, meta_only: bool = False
+) -> List[Dict[str, Any]]:
     post_files = []
     try:
         post_files = os.listdir(os.path.join(current_app.instance_path, "posts"))
@@ -80,43 +88,69 @@ def load_posts(sort_key: str = "created", sort_reverse: bool = True) -> List[dic
         pass
     posts = []
     for post_file in post_files:
-        try:
-            filename, ext = os.path.splitext(post_file)
-            if ext != ".md":
-                continue
-            year, month, day, name = filename.split("-", maxsplit=3)
-            year, month, day = int(year), int(month), int(day)
-            post = load_post(year, month, day, name)
-            if post:
-                posts.append(post)
-        except Exception as e:
-            print(e)
+        if not post_file.endswith(".md"):
+            continue
+        post = load_post(post_file, meta_only=meta_only)
+        if post:
+            posts.append(post)
     posts.sort(key=lambda x: x.get(sort_key), reverse=sort_reverse)
     return posts
 
 
-def render_index() -> str:
-    posts = load_posts()
-    return render_template("index.html", entries=posts, prev_url="123", next_url="123")
+def render_entries(
+    entries: List[Dict[str, Any]],
+    template: str = "index.html",
+    prev_url: Optional[str] = None,
+    next_url: Optional[str] = None,
+) -> str:
+    if not template.endswith(".html"):
+        template += ".html"
+    return render_template(
+        template, entries=entries, prev_url=prev_url, next_url=next_url
+    )
 
 
-def render_entry(template: str, entry: dict) -> str:
-    template = {"post": "post.html", "page": "page.html"}.get(template, template)
+def render_entry(entry: Dict[str, Any], template: str) -> str:
+    if not template.endswith(".html"):
+        template += ".html"
     return render_template(template, entry=entry)
 
 
 @app.route("/")
 def index():
-    return render_index()
+    posts = load_posts(meta_only=True)
+    post_count = len(posts)
+    page_count = (post_count + POSTS_PER_PAGE_ON_INDEX - 1) // POSTS_PER_PAGE_ON_INDEX
+    try:
+        page_num = int(request.args.get("page", 1))
+    except ValueError:
+        page_num = 0
+    if page_num < 1 or request.args.get("page") == "1":
+        return redirect(url_for("index"), 302)
+    if page_num > page_count:
+        return render_entries([])
+
+    prev_url = None
+    next_url = None
+    if page_num > 1:
+        prev_url = url_for("index", page=page_num - 1)
+    if page_num < page_count:
+        next_url = url_for("index", page=page_num + 1)
+
+    begin = (page_num - 1) * POSTS_PER_PAGE_ON_INDEX
+    end = min(post_count, begin + POSTS_PER_PAGE_ON_INDEX)
+    posts_to_render = []
+    for i in range(begin, end):
+        posts_to_render.append(load_post(posts[i]["file"]))
+    return render_entries(posts_to_render, prev_url=prev_url, next_url=next_url)
 
 
 @app.route("/post/<int:year>/<int:month>/<int:day>/<name>")
 def post(year: int, month: int, day: int, name: str):
-    post = load_post(year, month, day, name)
-    print(repr(post))
+    post = load_post(f"{year:0>4d}-{month:0>2d}-{day:0>2d}-{name}.md")
     if not post:
         abort(404)
-    return render_entry("post", post)
+    return render_entry(post, "post")
 
 
 # if __name__ == "__main__":
