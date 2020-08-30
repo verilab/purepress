@@ -129,6 +129,7 @@ def index():
         return redirect(url_for("index"), 302)
     if page_num > page_count:
         return render_entries([])
+    # TODO: /p/<int:page_num>
 
     prev_url = None
     next_url = None
