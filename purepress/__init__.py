@@ -92,8 +92,9 @@ def render_index() -> str:
     return render_template("index.html", posts=posts)
 
 
-def render_post(post: dict) -> str:
-    return render_template("post.html", post=post)
+def render_entry(template: str, entry: dict) -> str:
+    template = {"post": "post.html", "page": "page.html"}.get(template, template)
+    return render_template(template, entry=entry)
 
 
 @app.route("/")
@@ -106,7 +107,7 @@ def post(year: int, month: int, day: int, name: str):
     post = load_post(year, month, day, name)
     if not post:
         abort(404)
-    return render_post(post)
+    return render_entry("post", post)
 
 
 # if __name__ == "__main__":

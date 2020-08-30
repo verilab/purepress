@@ -1,0 +1,29 @@
+{% extends 'layout.html' %}
+
+{% block head %}
+{{ super() }}
+<title>{{ entry.title + ' - ' + site.title }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='railscasts.min.css') }}">
+<script src="{{ url_for('static', filename='highlight.min.js') }}"></script>
+{% endblock %}
+
+{% block main %}
+<article class="article">
+  <h1 class="article-title">{{ entry.title }}</h1>
+  {% include ['custom/meta.html', 'meta.html'] ignore missing %}
+  <div class="content">
+    {{ entry.content|safe }}
+  </div>
+</article>
+<div class="article discuss-thread" id="discuss-thread">
+  <h2>评论</h2>
+  {% include ['custom/discuss-thread.html', 'discuss-thread.html'] ignore missing %}
+</div>
+{% endblock %}
+
+{% block foot %}
+<script>
+  hljs.configure({ languages: [] }); // disable language auto detection
+  hljs.initHighlightingOnLoad();
+</script>
+{% endblock %}

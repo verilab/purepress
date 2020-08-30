@@ -1,5 +1,10 @@
 {% extends 'layout.html' %}
 
+{% block head %}
+{{ super() }}
+<title>{{ site.title }}</title>
+{% endblock %}
+
 {% block main %}
 {% if not posts %}
 <article class="article">
