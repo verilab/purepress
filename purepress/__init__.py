@@ -1,7 +1,7 @@
 import os
 import json
-from datetime import datetime
-from typing import Dict, List, Optional
+from datetime import date, datetime
+from typing import List, Optional
 
 import yaml
 from markdown import Markdown
@@ -21,7 +21,7 @@ app = Flask(
 
 markdown = Markdown(extensions=[GithubFlavoredMarkdownExtension()])
 
-site: Dict[str, str] = {}
+site: dict = {}
 try:
     with open(os.path.join(instance_path, "site.json"), "r", encoding="utf-8") as f:
         site = json.load(f)
@@ -53,18 +53,26 @@ def load_post(
                 md_content = remained.strip()
             else:
                 md_content = "\n\n".join([firstline, remained])
-        return {
+        post = {
             "title": name,
-            "date": datetime(year=year, month=month, day=day),
             "url": f"/post/{year:0>4d}/{month:0>2d}/{day:0>2d}/{name}",
-            **yaml.load(yml_fm),
             "content": markdown.convert(md_content) if convert_content else None,
         }
+        post.update(yaml.load(yml_fm, Loader=yaml.FullLoader))
+        if "created" not in post:
+            post["created"] = datetime(year=year, month=month, day=day)
+        for k in ("created", "updated"):
+            if isinstance(post.get(k), date):
+                post[k] = datetime.combine(post[k], datetime.min.time())
+        for k in ("categories", "tags"):
+            if isinstance(post.get(k), str):
+                post[k] = [post[k]]
+        return post
     except FileNotFoundError:
         return None
 
 
-def load_posts(sort_key: str = "date", sort_reverse: bool = True) -> List[dict]:
+def load_posts(sort_key: str = "created", sort_reverse: bool = True) -> List[dict]:
     post_files = []
     try:
         post_files = os.listdir(os.path.join(current_app.instance_path, "posts"))
@@ -89,7 +97,7 @@ def load_posts(sort_key: str = "date", sort_reverse: bool = True) -> List[dict]:
 
 def render_index() -> str:
     posts = load_posts()
-    return render_template("index.html", posts=posts)
+    return render_template("index.html", entries=posts, prev_url="123", next_url="123")
 
 
 def render_entry(template: str, entry: dict) -> str:
@@ -105,6 +113,7 @@ def index():
 @app.route("/post/<int:year>/<int:month>/<int:day>/<name>")
 def post(year: int, month: int, day: int, name: str):
     post = load_post(year, month, day, name)
+    print(repr(post))
     if not post:
         abort(404)
     return render_entry("post", post)

@@ -253,14 +253,13 @@ img {
 .pager {
     padding: 0 0 1.5em;
     list-style: none;
-    text-align: center;
 }
 
 .pager li {
     display: inline;
 }
 
-.pager .previous>a, .pager .previous>span {
+.pager .prev>a, .pager .prev>span {
     float: left;
 }
 

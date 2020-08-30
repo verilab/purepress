@@ -6,19 +6,46 @@
 {% endblock %}
 
 {% block main %}
-{% if not posts %}
+{% if not entries %}
 <article class="article">
-    <p>😶这里是空的。</p>
+  <p>😶这里是空的。</p>
 </article>
 {% endif %}
-{% for post in posts %}
+
+{% for entry in entries %}
 <article class="article">
-    <h2 class="article-title"><a href="{{ post.url }}">{{ post.title }}</a></h2>
-    <div class="content limit-height">
-        {{ post.content | safe }}
-        <div class="hide-article-box"></div>
-        <a href="{{ post.url }}" class="fill-link">{{ post.title }}</a>
-    </div>
+  <h2 class="article-title"><a href="{{ entry.url }}">{{ entry.title }}</a></h2>
+  {% include ['custom/meta.html', 'meta.html'] ignore missing %}
+  <div class="content limit-height">
+    {{ entry.content | safe }}
+    <div class="hide-article-box"></div>
+    <a href="{{ entry.url }}" class="fill-link">{{ entry.title }}</a>
+  </div>
 </article>
 {% endfor %}
+
+<div class="article pager-container">
+  {% if prev_url or next_url %}
+  <ul class="pager">
+    {% if prev_url %}
+    <li class="prev">
+      <a href="{{ prev_url }}" class="button">上一页</a>
+    </li>
+    {% endif %}
+    {% if next_url %}
+    <li class="next">
+      <a href="{{ next_url }}" class="button">下一页</a>
+    </li>
+    {% endif %}
+  </ul>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block foot %}
+<script>
+  // remove any images on index page
+  document.querySelectorAll(".article img").forEach(e => e.parentNode.removeChild(e));
+  setTimeout(() => window.stop(), 1000);
+</script>
 {% endblock %}
