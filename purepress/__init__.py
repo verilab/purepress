@@ -9,22 +9,16 @@ import markdown.extensions
 import markdown.treeprocessors
 from markdown import Markdown
 from mdx_gfm import GithubFlavoredMarkdownExtension
-from flask import (
-    Flask,
-    render_template,
-    abort,
-    current_app,
-    redirect,
-    url_for,
-    Blueprint,
-)
-from werkzeug.utils import secure_filename
+from flask import Flask, render_template, abort, redirect, url_for, Blueprint
+from werkzeug.security import safe_join
 
 # calculate some folder path
 instance_path = os.getenv("INSTANCE_PATH", os.getcwd())
 static_folder = os.path.join(instance_path, "static")
 template_folder = os.path.join(instance_path, "theme", "templates")
 theme_static_folder = os.path.join(instance_path, "theme", "static")
+posts_folder = os.path.join(instance_path, "posts")
+pages_folder = os.path.join(instance_path, "pages")
 
 app = Flask(
     __name__,
@@ -70,22 +64,11 @@ def inject_site_object() -> Dict[str, Any]:
     return {"site": app.config["SITE_INFO"]}
 
 
-def load_post(file: str, *, meta_only: bool = False) -> Optional[Dict[str, Any]]:
-    # parse the filename
-    try:
-        year, month, day, name = os.path.splitext(file)[0].split("-", maxsplit=3)
-        year, month, day = int(year), int(month), int(day)
-    except ValueError:
-        return None
-
+def load_entry(fullpath: str, *, meta_only: bool = False) -> Optional[Dict[str, Any]]:
     # read frontmatter and content
     frontmatter, content = "", ""
     try:
-        with open(
-            os.path.join(current_app.instance_path, "posts", file),
-            mode="r",
-            encoding="utf-8",
-        ) as f:
+        with open(fullpath, mode="r", encoding="utf-8") as f:
             firstline = f.readline().strip()
             remained = f.read().strip()
             if firstline == "---":
@@ -95,42 +78,54 @@ def load_post(file: str, *, meta_only: bool = False) -> Optional[Dict[str, Any]]
                 content = "\n\n".join([firstline, remained])
     except FileNotFoundError:
         return None
-
-    # construct the post object
-    post: Dict[str, Any] = {
-        "file": file,  # some function may use this to fully load the post
-        "title": name,
-        "url": url_for(
-            ".post",
-            year=f"{year:0>4d}",
-            month=f"{month:0>2d}",
-            day=f"{day:0>2d}",
-            name=name,
-        ),
-    }
-    # assume the frontmatter is a valid YAML here
-    post.update(yaml.load(frontmatter, Loader=yaml.FullLoader))
-    # ensure the datetime meta data is real *datetime*
-    if "created" not in post:
-        post["created"] = datetime(year=year, month=month, day=day)
+    # construct the entry object, assume the frontmatter is a valid yaml dict here
+    entry: Dict[str, Any] = yaml.load(frontmatter, Loader=yaml.FullLoader)
     for k in ("created", "updated"):
-        if isinstance(post.get(k), date):
-            post[k] = datetime.combine(post[k], datetime.min.time())
+        if isinstance(entry.get(k), date):
+            entry[k] = datetime.combine(entry[k], datetime.min.time())
     # ensure tags and categories are lists
     for k in ("categories", "tags"):
-        if isinstance(post.get(k), str):
-            post[k] = [post[k]]
+        if isinstance(entry.get(k), str):
+            entry[k] = [entry[k]]
+    # if should, convert markdown content to html
     if not meta_only:
-        post["content"] = md.convert(content)
+        entry["content"] = md.convert(content)
+    return entry
+
+
+def load_post(filename: str, meta_only: bool = False) -> Optional[Dict[str, Any]]:
+    # parse the filename
+    try:
+        year, month, day, name = os.path.splitext(filename)[0].split("-", maxsplit=3)
+        year, month, day = int(year), int(month), int(day)
+    except ValueError:
+        return None
+    # load post entry
+    post = load_entry(safe_join(posts_folder, filename), meta_only=meta_only)
+    if post is None:  # note that post may be {}
+        return None
+    # add some fields
+    post["file"] = filename
+    post["url"] = url_for(
+        ".post",
+        year=f"{year:0>4d}",
+        month=f"{month:0>2d}",
+        day=f"{day:0>2d}",
+        name=name,
+    )
+    # ensure *title* field
+    if "title" not in post:
+        post["title"] = " ".join(name.split("-"))
+    # ensure *created* field
+    if "created" not in post:
+        post["created"] = datetime(year=year, month=month, day=day)
     return post
 
 
-def load_posts(
-    *, sort_key: str = "created", sort_reverse: bool = True, meta_only: bool = False
-) -> List[Dict[str, Any]]:
+def load_posts(*, meta_only: bool = False) -> List[Dict[str, Any]]:
     post_files = []
     try:
-        post_files = os.listdir(os.path.join(current_app.instance_path, "posts"))
+        post_files = os.listdir(posts_folder)
     except FileNotFoundError:
         pass
     posts = []
@@ -140,8 +135,11 @@ def load_posts(
         post = load_post(post_file, meta_only=meta_only)
         if post:
             posts.append(post)
-    posts.sort(key=lambda x: x.get(sort_key), reverse=sort_reverse)
+    posts.sort(key=lambda x: x.get("created"), reverse=True)
     return posts
+
+
+# def load_page(file: str, )
 
 
 def templated(template: str) -> Callable:
@@ -206,7 +204,7 @@ def index_page(page_num, *, from_index: bool = False):
 @templated("post")
 def post(year: str, month: str, day: str, name: str):
     # use secure_filename to avoid filename attacks
-    post = load_post(secure_filename(f"{year}-{month}-{day}-{name}.md"))
+    post = load_post(f"{year}-{month}-{day}-{name}.md")
     if not post:
         abort(404)
     return {"entry": post}
@@ -235,6 +233,15 @@ def tag(name: str):
         filter(lambda p: name in p.get("tags", []), load_posts(meta_only=True))
     )
     return {"entries": posts, "archive": {"type": "Tag", "name": name}}
+
+
+# @app.route("/<path:rel_url>")
+# @templated("page")
+# def page(rel_url: str):
+#     pathnames = rel_url.split("/")
+#     filename = pathnames[-1]
+#     path = safe_join()
+#     return ""
 
 
 @app.errorhandler(404)
