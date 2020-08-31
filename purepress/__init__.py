@@ -281,8 +281,3 @@ def page(rel_url: str):
 @app.route("/404.html")
 def page_not_found(e=None):
     return render_template("404.html"), 404
-
-
-if __name__ == "__main__":
-    with app.test_client() as client:
-        print(client.get("/").data)
