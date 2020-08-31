@@ -1,8 +1,11 @@
 import os
+import xml.etree.ElementTree as etree
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
 import yaml
+import markdown.extensions
+import markdown.treeprocessors
 from markdown import Markdown
 from mdx_gfm import GithubFlavoredMarkdownExtension
 from flask import (
@@ -43,9 +46,24 @@ app.register_blueprint(theme_bp)
 app.config.from_object("purepress.default_config")
 app.config.from_pyfile("config.py", silent=True)
 
-markdown = Markdown(extensions=[GithubFlavoredMarkdownExtension()])
+# prepare markdown parser
+class HookImageSrcProcessor(markdown.treeprocessors.Treeprocessor):
+    def run(self, root: etree.Element):
+        for el in root.iter("img"):
+            src = el.get("src")
+            if src.startswith("/static/"):
+                el.set("src", src.replace("/static/", url_for("static", filename="")))
 
 
+class HookImageSrcExtension(markdown.extensions.Extension):
+    def extendMarkdown(self, md) -> None:
+        md.treeprocessors.register(HookImageSrcProcessor(), "hook-image-src", 5)
+
+
+md = Markdown(extensions=[GithubFlavoredMarkdownExtension(), HookImageSrcExtension()])
+
+
+# inject site info into template context
 @app.context_processor
 def inject_site_object() -> Dict[str, Any]:
     return {"site": app.config["SITE_INFO"]}
@@ -102,7 +120,7 @@ def load_post(file: str, *, meta_only: bool = False) -> Optional[Dict[str, Any]]
         if isinstance(post.get(k), str):
             post[k] = [post[k]]
     if not meta_only:
-        post["content"] = markdown.convert(content)
+        post["content"] = md.convert(content)
     return post
 
 
