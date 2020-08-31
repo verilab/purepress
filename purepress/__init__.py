@@ -1,7 +1,8 @@
 import os
+import functools
 import xml.etree.ElementTree as etree
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 import markdown.extensions
@@ -143,16 +144,21 @@ def load_posts(
     return posts
 
 
-def render_entries(entries: List[Dict[str, Any]], template: str, **kwargs) -> str:
+def templated(template: str) -> Callable:
     if not template.endswith(".html"):
         template += ".html"
-    return render_template(template, entries=entries, **kwargs)
 
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            res = func(*args, **kwargs)
+            if isinstance(res, dict):
+                return render_template([f"custom/{template}", template], **res)
+            return res
 
-def render_entry(entry: Dict[str, Any], template: str, **kwargs) -> str:
-    if not template.endswith(".html"):
-        template += ".html"
-    return render_template(template, entry=entry, **kwargs)
+        return wrapper
+
+    return decorator
 
 
 @app.route("/")
@@ -162,6 +168,7 @@ def index():
 
 
 @app.route("/page/<int:page_num>/")
+@templated("index")
 def index_page(page_num, *, from_index: bool = False):
     # do some calculation and handle unexpected cases
     posts_per_page = app.config["POSTS_PER_PAGE_ON_INDEX"]
@@ -189,24 +196,27 @@ def index_page(page_num, *, from_index: bool = False):
     posts_to_render = []
     for i in range(begin, end):
         posts_to_render.append(load_post(posts[i]["file"]))
-    return render_entries(
-        posts_to_render, "index", pager={"prev_url": prev_url, "next_url": next_url}
-    )
+    return {
+        "entries": posts_to_render,
+        "pager": {"prev_url": prev_url, "next_url": next_url},
+    }
 
 
 @app.route("/post/<year>/<month>/<day>/<name>/")
+@templated("post")
 def post(year: str, month: str, day: str, name: str):
     # use secure_filename to avoid filename attacks
     post = load_post(secure_filename(f"{year}-{month}-{day}-{name}.md"))
     if not post:
         abort(404)
-    return render_entry(post, "post")
+    return {"entry": post}
 
 
 @app.route("/archive/")
+@templated("archive")
 def archive():
     posts = load_posts(meta_only=True)
-    return render_entries(posts, "archive", archive={"type": "Archive", "name": "All"})
+    return {"entries": posts, "archive": {"type": "Archive", "name": "All"}}
 
 
 @app.errorhandler(404)
