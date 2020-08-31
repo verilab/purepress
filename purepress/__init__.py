@@ -39,6 +39,7 @@ theme_bp = Blueprint(
 )
 app.register_blueprint(theme_bp)
 
+# load configurations
 app.config.from_object("purepress.default_config")
 app.config.from_pyfile("config.py", silent=True)
 
@@ -51,13 +52,15 @@ def inject_site_object() -> Dict[str, Any]:
 
 
 def load_post(file: str, *, meta_only: bool = False) -> Optional[Dict[str, Any]]:
+    # parse the filename
     try:
         year, month, day, name = os.path.splitext(file)[0].split("-", maxsplit=3)
         year, month, day = int(year), int(month), int(day)
     except ValueError:
         return None
-    yml_fm = ""
-    md_content = ""
+
+    # read frontmatter and content
+    frontmatter, content = "", ""
     try:
         with open(
             os.path.join(current_app.instance_path, "posts", file),
@@ -67,29 +70,40 @@ def load_post(file: str, *, meta_only: bool = False) -> Optional[Dict[str, Any]]
             firstline = f.readline().strip()
             remained = f.read().strip()
             if firstline == "---":
-                yml_fm, remained = remained.split("---", maxsplit=1)
-                md_content = remained.strip()
+                frontmatter, remained = remained.split("---", maxsplit=1)
+                content = remained.strip()
             else:
-                md_content = "\n\n".join([firstline, remained])
-        post: Dict[str, Any] = {
-            "file": file,
-            "title": name,
-            "url": f"/post/{year:0>4d}/{month:0>2d}/{day:0>2d}/{name}/",  # TODO, url_for
-        }
-        post.update(yaml.load(yml_fm, Loader=yaml.FullLoader))
-        if "created" not in post:
-            post["created"] = datetime(year=year, month=month, day=day)
-        for k in ("created", "updated"):
-            if isinstance(post.get(k), date):
-                post[k] = datetime.combine(post[k], datetime.min.time())
-        for k in ("categories", "tags"):
-            if isinstance(post.get(k), str):
-                post[k] = [post[k]]
-        if not meta_only:
-            post["content"] = markdown.convert(md_content)
-        return post
+                content = "\n\n".join([firstline, remained])
     except FileNotFoundError:
         return None
+
+    # construct the post object
+    post: Dict[str, Any] = {
+        "file": file,  # some function may use this to fully load the post
+        "title": name,
+        "url": url_for(
+            ".post",
+            year=f"{year:0>4d}",
+            month=f"{month:0>2d}",
+            day=f"{day:0>2d}",
+            name=name,
+        ),
+    }
+    # assume the frontmatter is a valid YAML here
+    post.update(yaml.load(frontmatter, Loader=yaml.FullLoader))
+    # ensure the datetime meta data is real *datetime*
+    if "created" not in post:
+        post["created"] = datetime(year=year, month=month, day=day)
+    for k in ("created", "updated"):
+        if isinstance(post.get(k), date):
+            post[k] = datetime.combine(post[k], datetime.min.time())
+    # ensure tags and categories are lists
+    for k in ("categories", "tags"):
+        if isinstance(post.get(k), str):
+            post[k] = [post[k]]
+    if not meta_only:
+        post["content"] = markdown.convert(content)
+    return post
 
 
 def load_posts(
@@ -132,6 +146,7 @@ def render_entry(entry: Dict[str, Any], template: str) -> str:
 
 @app.route("/")
 def index():
+    # the logic is the same as /page/1/, just reuse it
     return index_page(1, from_index=True)
 
 
@@ -142,10 +157,11 @@ def index_page(page_num, *, from_index: bool = False):
     posts = load_posts(meta_only=True)  # just load meta data quickly
     post_count = len(posts)
     page_count = (post_count + posts_per_page - 1) // posts_per_page
-    if page_num < 1 or (page_num == 1 and not from_index):
+    if page_num == 1 and not from_index:
+        # redirect /page/1/ to /
         return redirect(url_for("index"), 302)
-    if page_num > page_count:
-        return render_entries([])
+    if page_num < 1 or page_num > page_count:
+        abort(404)
 
     # prepare pager links
     prev_url, next_url = None, None
@@ -167,7 +183,7 @@ def index_page(page_num, *, from_index: bool = False):
 
 @app.route("/post/<year>/<month>/<day>/<name>/")
 def post(year: str, month: str, day: str, name: str):
-    # use secure_filename in case somebody tries to attack
+    # use secure_filename to avoid filename attacks
     post = load_post(secure_filename(f"{year}-{month}-{day}-{name}.md"))
     if not post:
         abort(404)
