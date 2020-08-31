@@ -1,7 +1,0 @@
-Flask
-Werkzeug
-Markdown
-py-gfm
-PyYAML
-click
-colorama
