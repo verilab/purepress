@@ -21,6 +21,7 @@ setup(
         "py-gfm",
         "PyYAML",
         "click",
+        "colorama",
     ],
     python_requires=">=3.7",
     platforms="any",
