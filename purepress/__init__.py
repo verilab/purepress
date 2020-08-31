@@ -1,4 +1,5 @@
 import os
+import re
 import functools
 import xml.etree.ElementTree as etree
 from datetime import date, datetime
@@ -9,7 +10,15 @@ import markdown.extensions
 import markdown.treeprocessors
 from markdown import Markdown
 from mdx_gfm import GithubFlavoredMarkdownExtension
-from flask import Flask, render_template, abort, redirect, url_for, Blueprint
+from flask import (
+    Flask,
+    render_template,
+    abort,
+    redirect,
+    url_for,
+    Blueprint,
+    send_from_directory,
+)
 from werkzeug.security import safe_join
 
 # calculate some folder path
@@ -19,6 +28,7 @@ template_folder = os.path.join(instance_path, "theme", "templates")
 theme_static_folder = os.path.join(instance_path, "theme", "static")
 posts_folder = os.path.join(instance_path, "posts")
 pages_folder = os.path.join(instance_path, "pages")
+raw_folder = os.path.join(instance_path, "raw")
 
 app = Flask(
     __name__,
@@ -45,9 +55,8 @@ app.config.from_pyfile("config.py", silent=True)
 class HookImageSrcProcessor(markdown.treeprocessors.Treeprocessor):
     def run(self, root: etree.Element):
         for el in root.iter("img"):
-            src = el.get("src")
-            if src.startswith("/static/"):
-                el.set("src", src.replace("/static/", url_for("static", filename="")))
+            src = el.get("src", "")
+            el.set("src", re.sub(r"^/static/", url_for("static", filename=""), src))
 
 
 class HookImageSrcExtension(markdown.extensions.Extension):
@@ -78,8 +87,9 @@ def load_entry(fullpath: str, *, meta_only: bool = False) -> Optional[Dict[str, 
                 content = "\n\n".join([firstline, remained])
     except FileNotFoundError:
         return None
-    # construct the entry object, assume the frontmatter is a valid yaml dict here
-    entry: Dict[str, Any] = yaml.load(frontmatter, Loader=yaml.FullLoader)
+    # construct the entry object
+    entry: Dict[str, Any] = yaml.load(frontmatter, Loader=yaml.FullLoader) or {}
+    # ensure datetime fields are real datetime
     for k in ("created", "updated"):
         if isinstance(entry.get(k), date):
             entry[k] = datetime.combine(entry[k], datetime.min.time())
@@ -94,18 +104,21 @@ def load_entry(fullpath: str, *, meta_only: bool = False) -> Optional[Dict[str, 
 
 
 def load_post(filename: str, meta_only: bool = False) -> Optional[Dict[str, Any]]:
-    # parse the filename
+    # parse the filename (yyyy-MM-dd-post-title.md)
     try:
         year, month, day, name = os.path.splitext(filename)[0].split("-", maxsplit=3)
         year, month, day = int(year), int(month), int(day)
     except ValueError:
         return None
     # load post entry
-    post = load_entry(safe_join(posts_folder, filename), meta_only=meta_only)
+    fullpath = safe_join(posts_folder, filename)
+    if fullpath is None:
+        return None
+    post = load_entry(fullpath, meta_only=meta_only)
     if post is None:  # note that post may be {}
         return None
     # add some fields
-    post["file"] = filename
+    post["filename"] = filename
     post["url"] = url_for(
         ".post",
         year=f"{year:0>4d}",
@@ -123,11 +136,10 @@ def load_post(filename: str, meta_only: bool = False) -> Optional[Dict[str, Any]
 
 
 def load_posts(*, meta_only: bool = False) -> List[Dict[str, Any]]:
-    post_files = []
     try:
         post_files = os.listdir(posts_folder)
     except FileNotFoundError:
-        pass
+        return []
     posts = []
     for post_file in post_files:
         if not post_file.endswith(".md"):
@@ -139,7 +151,30 @@ def load_posts(*, meta_only: bool = False) -> List[Dict[str, Any]]:
     return posts
 
 
-# def load_page(file: str, )
+def load_page(rel_url: str) -> Optional[Dict[str, Any]]:
+    print(rel_url)
+    # convert relative url to full file path
+    pathnames = rel_url.split("/")
+    fullpath = safe_join(pages_folder, *pathnames)
+    if fullpath is None:
+        return None
+    if fullpath.endswith(os.path.sep):  # /foo/bar/
+        fullpath = os.path.join(fullpath, "index.md")
+    elif fullpath.endswith(".html"):  # /foo/bar.html
+        fullpath = os.path.splitext(fullpath)[0] + ".md"
+    else:  # /foo/bar
+        fullpath += ".md"
+    print(fullpath)
+    # load page entry
+    page = load_entry(fullpath)
+    if page is None:
+        return None
+    page["url"] = url_for(".page", rel_url=rel_url)
+    # ensure *title* field
+    if "title" not in page:
+        name = os.path.splitext(os.path.basename(fullpath))[0]
+        page["title"] = " ".join(name.split("-"))
+    return page
 
 
 def templated(template: str) -> Callable:
@@ -193,7 +228,7 @@ def index_page(page_num, *, from_index: bool = False):
     end = min(post_count, begin + posts_per_page)
     posts_to_render = []
     for i in range(begin, end):
-        posts_to_render.append(load_post(posts[i]["file"]))
+        posts_to_render.append(load_post(posts[i]["filename"]))
     return {
         "entries": posts_to_render,
         "pager": {"prev_url": prev_url, "next_url": next_url},
@@ -235,13 +270,13 @@ def tag(name: str):
     return {"entries": posts, "archive": {"type": "Tag", "name": name}}
 
 
-# @app.route("/<path:rel_url>")
-# @templated("page")
-# def page(rel_url: str):
-#     pathnames = rel_url.split("/")
-#     filename = pathnames[-1]
-#     path = safe_join()
-#     return ""
+@app.route("/<path:rel_url>")
+@templated("page")
+def page(rel_url: str):
+    page = load_page(rel_url)
+    if not page:
+        return send_from_directory(raw_folder, rel_url)
+    return {"entry": page}
 
 
 @app.errorhandler(404)
@@ -249,7 +284,6 @@ def page_not_found(e):
     return render_template("404.html"), 404
 
 
-# if __name__ == "__main__":
-#     app.run("127.0.0.1", 8080, debug=True)
-#     with app.test_request_context("/"):
-#         print(render_index())
+if __name__ == "__main__":
+    with app.test_client() as client:
+        print(client.get("/").data)
