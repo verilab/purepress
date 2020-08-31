@@ -152,7 +152,6 @@ def load_posts(*, meta_only: bool = False) -> List[Dict[str, Any]]:
 
 
 def load_page(rel_url: str) -> Optional[Dict[str, Any]]:
-    print(rel_url)
     # convert relative url to full file path
     pathnames = rel_url.split("/")
     fullpath = safe_join(pages_folder, *pathnames)
@@ -164,7 +163,6 @@ def load_page(rel_url: str) -> Optional[Dict[str, Any]]:
         fullpath = os.path.splitext(fullpath)[0] + ".md"
     else:  # /foo/bar
         fullpath += ".md"
-    print(fullpath)
     # load page entry
     page = load_entry(fullpath)
     if page is None:
@@ -280,7 +278,8 @@ def page(rel_url: str):
 
 
 @app.errorhandler(404)
-def page_not_found(e):
+@app.route("/404.html")
+def page_not_found(e=None):
     return render_template("404.html"), 404
 
 
