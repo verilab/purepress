@@ -3,3 +3,4 @@ Werkzeug
 Markdown
 py-gfm
 PyYAML
+click
