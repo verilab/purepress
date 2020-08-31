@@ -14,7 +14,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=find_packages(include=("purepress", "purepress.*")),
-    install_requires=["Flask", "Markdown", "py-gfm", "PyYAML"],
+    install_requires=["Flask", "Werkzeug", "Markdown", "py-gfm", "PyYAML"],
     python_requires=">=3.7",
     platforms="any",
     classifiers=[

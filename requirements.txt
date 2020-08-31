@@ -1,4 +1,5 @@
 Flask
+Werkzeug
 Markdown
 py-gfm
 PyYAML
