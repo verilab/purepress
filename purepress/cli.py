@@ -32,6 +32,10 @@ def cli():
     pass
 
 
+def main():
+    cli.main()
+
+
 @cli.command("preview", short_help="Preview the site.")
 @click.option("--host", "-h", default="127.0.0.1", help="Host to preview the site.")
 @click.option("--port", "-p", default=8080, help="Port to preview the site.")
