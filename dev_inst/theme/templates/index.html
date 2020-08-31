@@ -25,16 +25,16 @@
 {% endfor %}
 
 <div class="article pager-container">
-  {% if prev_url or next_url %}
+  {% if pager %}
   <ul class="pager">
-    {% if prev_url %}
+    {% if pager.prev_url %}
     <li class="prev">
-      <a href="{{ prev_url }}" class="button">上一页</a>
+      <a href="{{ pager.prev_url }}" class="button">上一页</a>
     </li>
     {% endif %}
-    {% if next_url %}
+    {% if pager.next_url %}
     <li class="next">
-      <a href="{{ next_url }}" class="button">下一页</a>
+      <a href="{{ pager.next_url }}" class="button">下一页</a>
     </li>
     {% endif %}
   </ul>

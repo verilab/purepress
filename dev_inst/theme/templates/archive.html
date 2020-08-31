@@ -1,0 +1,32 @@
+{% extends 'layout.html' %}
+
+{% block head %}
+{{ super() }}
+<title>{{ archive.name + ' - ' + archive.type + ' - ' + site.title }}</title>
+{% endblock %}
+
+{% block main %}
+<article class="article">
+  <h1 class="article-title">{{ archive.type }}: {{ archive.name }}</h1>
+  <div class="content">
+    {% if not entries %}
+    <p>{{ '😶这里是空的。' }}</p>
+    {% else %}
+
+    <table class="table-clean">
+      <tbody>
+        {% for entry in entries %}
+        <tr>
+          <td style="font-size: 85%">
+            <time>{{ entry.created.strftime('%Y.%m.%d') if entry.created else '' }}</time>
+          </td>
+          <td><a href="{{ entry.url }}">{{ entry.title }}</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% endif %}
+  </div>
+</article>
+{% endblock %}

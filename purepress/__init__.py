@@ -143,23 +143,16 @@ def load_posts(
     return posts
 
 
-def render_entries(
-    entries: List[Dict[str, Any]],
-    template: str = "index.html",
-    prev_url: Optional[str] = None,
-    next_url: Optional[str] = None,
-) -> str:
+def render_entries(entries: List[Dict[str, Any]], template: str, **kwargs) -> str:
     if not template.endswith(".html"):
         template += ".html"
-    return render_template(
-        template, entries=entries, prev_url=prev_url, next_url=next_url
-    )
+    return render_template(template, entries=entries, **kwargs)
 
 
-def render_entry(entry: Dict[str, Any], template: str) -> str:
+def render_entry(entry: Dict[str, Any], template: str, **kwargs) -> str:
     if not template.endswith(".html"):
         template += ".html"
-    return render_template(template, entry=entry)
+    return render_template(template, entry=entry, **kwargs)
 
 
 @app.route("/")
@@ -196,7 +189,9 @@ def index_page(page_num, *, from_index: bool = False):
     posts_to_render = []
     for i in range(begin, end):
         posts_to_render.append(load_post(posts[i]["file"]))
-    return render_entries(posts_to_render, prev_url=prev_url, next_url=next_url)
+    return render_entries(
+        posts_to_render, "index", pager={"prev_url": prev_url, "next_url": next_url}
+    )
 
 
 @app.route("/post/<year>/<month>/<day>/<name>/")
@@ -206,6 +201,12 @@ def post(year: str, month: str, day: str, name: str):
     if not post:
         abort(404)
     return render_entry(post, "post")
+
+
+@app.route("/archive/")
+def archive():
+    posts = load_posts(meta_only=True)
+    return render_entries(posts, "archive", archive={"type": "Archive", "name": "All"})
 
 
 @app.errorhandler(404)
