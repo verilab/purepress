@@ -1,39 +1,53 @@
 import os
-import json
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
 import yaml
 from markdown import Markdown
 from mdx_gfm import GithubFlavoredMarkdownExtension
-from flask import Flask, render_template, abort, current_app, request, redirect, url_for
+from flask import (
+    Flask,
+    render_template,
+    abort,
+    current_app,
+    request,
+    redirect,
+    url_for,
+    Blueprint,
+)
 
+# calculate some folder path
 instance_path = os.getenv("INSTANCE_PATH", os.getcwd())
+static_folder = os.path.join(instance_path, "static")
 template_folder = os.path.join(instance_path, "theme", "templates")
-static_folder = os.path.join(instance_path, "theme", "static")
-
-POSTS_PER_PAGE_ON_INDEX = 5
+theme_static_folder = os.path.join(instance_path, "theme", "static")
 
 app = Flask(
     __name__,
     instance_path=instance_path,
     template_folder=template_folder,
     static_folder=static_folder,
+    instance_relative_config=True,
 )
 
-markdown = Markdown(extensions=[GithubFlavoredMarkdownExtension()])
+# handle static files for theme
+theme_bp = Blueprint(
+    "theme",
+    __name__,
+    static_url_path="/static/theme",
+    static_folder=theme_static_folder,
+)
+app.register_blueprint(theme_bp)
 
-site: Dict[str, Any] = {}
-try:
-    with open(os.path.join(instance_path, "site.json"), "r", encoding="utf-8") as f:
-        site = json.load(f)
-except FileNotFoundError:
-    pass
+app.config.from_object("purepress.default_config")
+app.config.from_pyfile("config.py", silent=True)
+
+markdown = Markdown(extensions=[GithubFlavoredMarkdownExtension()])
 
 
 @app.context_processor
 def inject_site_object() -> Dict[str, Any]:
-    return {"site": site}
+    return {"site": app.config["SITE_INFO"]}
 
 
 def load_post(file: str, *, meta_only: bool = False) -> Optional[Dict[str, Any]]:
@@ -118,9 +132,10 @@ def render_entry(entry: Dict[str, Any], template: str) -> str:
 
 @app.route("/")
 def index():
+    posts_per_page = app.config["POSTS_PER_PAGE_ON_INDEX"]
     posts = load_posts(meta_only=True)
     post_count = len(posts)
-    page_count = (post_count + POSTS_PER_PAGE_ON_INDEX - 1) // POSTS_PER_PAGE_ON_INDEX
+    page_count = (post_count + posts_per_page - 1) // posts_per_page
     try:
         page_num = int(request.args.get("page", 1))
     except ValueError:
@@ -138,8 +153,8 @@ def index():
     if page_num < page_count:
         next_url = url_for("index", page=page_num + 1)
 
-    begin = (page_num - 1) * POSTS_PER_PAGE_ON_INDEX
-    end = min(post_count, begin + POSTS_PER_PAGE_ON_INDEX)
+    begin = (page_num - 1) * posts_per_page
+    end = min(post_count, begin + posts_per_page)
     posts_to_render = []
     for i in range(begin, end):
         posts_to_render.append(load_post(posts[i]["file"]))
