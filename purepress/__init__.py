@@ -10,11 +10,11 @@ from flask import (
     render_template,
     abort,
     current_app,
-    request,
     redirect,
     url_for,
     Blueprint,
 )
+from werkzeug.utils import secure_filename
 
 # calculate some folder path
 instance_path = os.getenv("INSTANCE_PATH", os.getcwd())
@@ -74,7 +74,7 @@ def load_post(file: str, *, meta_only: bool = False) -> Optional[Dict[str, Any]]
         post: Dict[str, Any] = {
             "file": file,
             "title": name,
-            "url": f"/post/{year:0>4d}/{month:0>2d}/{day:0>2d}/{name}",
+            "url": f"/post/{year:0>4d}/{month:0>2d}/{day:0>2d}/{name}/",  # TODO, url_for
         }
         post.update(yaml.load(yml_fm, Loader=yaml.FullLoader))
         if "created" not in post:
@@ -132,27 +132,31 @@ def render_entry(entry: Dict[str, Any], template: str) -> str:
 
 @app.route("/")
 def index():
+    return index_page(1, from_index=True)
+
+
+@app.route("/page/<int:page_num>/")
+def index_page(page_num, *, from_index: bool = False):
+    # do some calculation and handle unexpected cases
     posts_per_page = app.config["POSTS_PER_PAGE_ON_INDEX"]
-    posts = load_posts(meta_only=True)
+    posts = load_posts(meta_only=True)  # just load meta data quickly
     post_count = len(posts)
     page_count = (post_count + posts_per_page - 1) // posts_per_page
-    try:
-        page_num = int(request.args.get("page", 1))
-    except ValueError:
-        page_num = 0
-    if page_num < 1 or request.args.get("page") == "1":
+    if page_num < 1 or (page_num == 1 and not from_index):
         return redirect(url_for("index"), 302)
     if page_num > page_count:
         return render_entries([])
-    # TODO: /p/<int:page_num>
 
-    prev_url = None
-    next_url = None
-    if page_num > 1:
-        prev_url = url_for("index", page=page_num - 1)
+    # prepare pager links
+    prev_url, next_url = None, None
+    if page_num == 2:
+        prev_url = url_for("index")
+    elif page_num > 2:
+        prev_url = url_for("index_page", page_num=page_num - 1)
     if page_num < page_count:
-        next_url = url_for("index", page=page_num + 1)
+        next_url = url_for("index_page", page_num=page_num + 1)
 
+    # load posts in the specified range
     begin = (page_num - 1) * posts_per_page
     end = min(post_count, begin + posts_per_page)
     posts_to_render = []
@@ -161,12 +165,18 @@ def index():
     return render_entries(posts_to_render, prev_url=prev_url, next_url=next_url)
 
 
-@app.route("/post/<int:year>/<int:month>/<int:day>/<name>")
-def post(year: int, month: int, day: int, name: str):
-    post = load_post(f"{year:0>4d}-{month:0>2d}-{day:0>2d}-{name}.md")
+@app.route("/post/<year>/<month>/<day>/<name>/")
+def post(year: str, month: str, day: str, name: str):
+    # use secure_filename in case somebody tries to attack
+    post = load_post(secure_filename(f"{year}-{month}-{day}-{name}.md"))
     if not post:
         abort(404)
     return render_entry(post, "post")
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template("404.html"), 404
 
 
 # if __name__ == "__main__":
