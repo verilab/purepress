@@ -18,7 +18,7 @@
     {%- if loop.index > 1 -%}
     <span>、</span>
     {%- endif -%}
-    <a href="">{{ category }}</a>
+    <a href="{{ url_for('category', name=category) }}">{{ category }}</a>
     {%- endfor -%}
   </span>
   {% endif %}
@@ -29,7 +29,7 @@
     {%- if loop.index > 1 -%}
     <span>、</span>
     {%- endif -%}
-    <a href="">{{ tag }}</a>
+    <a href="{{ url_for('tag', name=tag) }}">{{ tag }}</a>
     {%- endfor -%}
   </span>
   {% endif %}

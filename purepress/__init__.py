@@ -219,6 +219,24 @@ def archive():
     return {"entries": posts, "archive": {"type": "Archive", "name": "All"}}
 
 
+@app.route("/category/<name>/")
+@templated("archive")
+def category(name: str):
+    posts = list(
+        filter(lambda p: name in p.get("categories", []), load_posts(meta_only=True))
+    )
+    return {"entries": posts, "archive": {"type": "Category", "name": name}}
+
+
+@app.route("/tag/<name>/")
+@templated("archive")
+def tag(name: str):
+    posts = list(
+        filter(lambda p: name in p.get("tags", []), load_posts(meta_only=True))
+    )
+    return {"entries": posts, "archive": {"type": "Tag", "name": name}}
+
+
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template("404.html"), 404
