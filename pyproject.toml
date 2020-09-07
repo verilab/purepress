@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "purepress"
-version = "0.1.0"
+version = "0.1.1"
 description = "A simple static blog generator."
 license = "MIT"
 authors = ["Richard Chien <richardchienthebest@gmail.com>"]
@@ -16,7 +16,7 @@ classifiers = [
 ]
 
 [tool.poetry.scripts]
-purepress = "purepress.cli:main"
+purepress = "purepress.__main__:main"
 
 [tool.poetry.dependencies]
 python = "^3.6"

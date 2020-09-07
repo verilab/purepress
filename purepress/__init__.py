@@ -291,13 +291,11 @@ def page_not_found(e=None):
 
 def s2tz(tz_str):
     m = re.match(r"UTC([+|-]\d{1,2}):(\d{2})", tz_str)
-    if m:
-        # in format 'UTC±[hh]:[mm]'
+    if m:  # in format 'UTC±[hh]:[mm]'
         delta_h = int(m.group(1))
         delta_m = int(m.group(2)) if delta_h >= 0 else -int(m.group(2))
         return timezone(timedelta(hours=delta_h, minutes=delta_m))
-    try:
-        # in format 'Asia/Shanghai'
+    try:  # in format 'Asia/Shanghai'
         return pytz.timezone(tz_str)
     except pytz.UnknownTimeZoneError:
         return None
@@ -310,31 +308,31 @@ def feed():
     feed_full_url = root_url + url_for(".feed")
     site = app.config["SITE_INFO"]
     site_tz = s2tz(site["timezone"]) or timezone(timedelta())
-
-    fg = FeedGenerator()
-    fg.id(home_full_url)
-    fg.title(site.get("title", ""))
-    fg.subtitle(site.get("subtitle", ""))
+    # set feed info
+    feed_gen = FeedGenerator()
+    feed_gen.id(home_full_url)
+    feed_gen.title(site.get("title", ""))
+    feed_gen.subtitle(site.get("subtitle", ""))
     if "author" in site:
-        fg.author(name=site["author"])
-    fg.link(href=home_full_url, rel="alternate")
-    fg.link(href=feed_full_url, rel="self")
-
+        feed_gen.author(name=site["author"])
+    feed_gen.link(href=home_full_url, rel="alternate")
+    feed_gen.link(href=feed_full_url, rel="self")
+    # add feed entries
     posts = load_posts(meta_only=True)[:10]
     for i in range(len(posts)):
         p = load_post(posts[i]["filename"])
         if not p:
             continue
-        fe = fg.add_entry()
-        fe.id(root_url + p["url"])
-        fe.link(href=root_url + p["url"])
-        fe.title(p["title"])
-        fe.content(p["content"])
-        fe.published(p["created"].replace(tzinfo=site_tz))
-        fe.updated(p.get("updated", p["created"]).replace(tzinfo=site_tz))
+        feed_entry = feed_gen.add_entry()
+        feed_entry.id(root_url + p["url"])
+        feed_entry.link(href=root_url + p["url"])
+        feed_entry.title(p["title"])
+        feed_entry.content(p["content"])
+        feed_entry.published(p["created"].replace(tzinfo=site_tz))
+        feed_entry.updated(p.get("updated", p["created"]).replace(tzinfo=site_tz))
         if "author" in p:
-            fe.author(name=p["author"])
-
-    resp = make_response(fg.atom_str(pretty=True))
+            feed_entry.author(name=p["author"])
+    # make http response
+    resp = make_response(feed_gen.atom_str(pretty=True))
     resp.content_type = "application/atom+xml; charset=utf-8"
     return resp
