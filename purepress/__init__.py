@@ -61,7 +61,8 @@ class HookImageSrcProcessor(markdown.treeprocessors.Treeprocessor):
         # TODO: hook all relative links
         for el in root.iter("img"):
             src = el.get("src", "")
-            el.set("src", re.sub(r"^/static/", url_for("static", filename=""), src))
+            static_url = url_for("static", filename="", _external=True)
+            el.set("src", re.sub(r"^/static/", static_url, src))
 
 
 class HookImageSrcExtension(markdown.extensions.Extension):

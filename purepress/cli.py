@@ -3,6 +3,7 @@ import re
 import shutil
 import functools
 import traceback
+from urllib.parse import urlparse
 
 import click
 from flask import url_for
@@ -48,14 +49,17 @@ def preview_command(host, port, debug):
 
 @cli.command("build", short_help="Build the site.")
 @click.option(
-    "--app-root",
-    default="/",
-    prompt="Please enter the application root (used as prefix of generated url)",
-    help="The application root of your site. For example, if you want to access the site "
-    'through "http://example.com/blog/", "/blog/" should be passed in as the app root.',
+    "--url-root",
+    prompt="Please enter the url root (used as prefix of generated url)",
+    help="The url root of your site. For example, if you want to access the site "
+    'through "http://example.com/blog/", "http://example.com/blog/" should be '
+    "passed in as the url root.",
 )
-def build_command(app_root):
-    app.config["APPLICATION_ROOT"] = app_root
+def build_command(url_root):
+    res = urlparse(url_root)
+    app.config["PREFERRED_URL_SCHEME"] = res.scheme
+    app.config["SERVER_NAME"] = res.netloc
+    app.config["APPLICATION_ROOT"] = res.path or "/"
     # mark as 'BUILDING' status, so that templates can react properly,
     app.config["BUILDING"] = True
 
@@ -185,6 +189,14 @@ def build(client):
         with open(os.path.join(page_folder, "index.html"), "wb") as f:
             f.write(res.data)
         page_num += 1
+    echo_green("OK")
+
+    echo("Building feed...", nl=False)
+    with app.test_request_context():
+        url = url_for(".feed")
+    res = client.get(url)
+    with open(os.path.join(build_folder, "feed.atom"), "wb") as f:
+        f.write(res.data)
     echo_green("OK")
 
     echo("Building 404...", nl=False)
