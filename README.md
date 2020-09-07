@@ -5,5 +5,4 @@
 ## TODO
 
 - [ ] Discuss thread
-- [ ] Atom feed
 - [ ] Theme
