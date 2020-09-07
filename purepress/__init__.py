@@ -2,10 +2,11 @@ import os
 import re
 import functools
 import xml.etree.ElementTree as etree
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 import yaml
+import pytz
 import markdown.extensions
 import markdown.treeprocessors
 from markdown import Markdown
@@ -18,8 +19,11 @@ from flask import (
     url_for,
     Blueprint,
     send_from_directory,
+    request,
+    make_response,
 )
 from werkzeug.security import safe_join
+from feedgen.feed import FeedGenerator
 
 # calculate some folder path
 instance_path = os.getenv("INSTANCE_PATH", os.getcwd())
@@ -54,6 +58,7 @@ app.config.from_pyfile("config.py", silent=True)
 # prepare markdown parser
 class HookImageSrcProcessor(markdown.treeprocessors.Treeprocessor):
     def run(self, root: etree.Element):
+        # TODO: hook all relative links
         for el in root.iter("img"):
             src = el.get("src", "")
             el.set("src", re.sub(r"^/static/", url_for("static", filename=""), src))
@@ -91,7 +96,7 @@ def load_entry(fullpath: str, *, meta_only: bool = False) -> Optional[Dict[str, 
     entry: Dict[str, Any] = yaml.load(frontmatter, Loader=yaml.FullLoader) or {}
     # ensure datetime fields are real datetime
     for k in ("created", "updated"):
-        if isinstance(entry.get(k), date):
+        if isinstance(entry.get(k), date) and not isinstance(entry.get(k), datetime):
             entry[k] = datetime.combine(entry[k], datetime.min.time())
     # ensure tags and categories are lists
     for k in ("categories", "tags"):
@@ -281,3 +286,54 @@ def page(rel_url: str):
 @app.route("/404.html")
 def page_not_found(e=None):
     return render_template("404.html"), 404
+
+
+def s2tz(tz_str):
+    m = re.match(r"UTC([+|-]\d{1,2}):(\d{2})", tz_str)
+    if m:
+        # in format 'UTC±[hh]:[mm]'
+        delta_h = int(m.group(1))
+        delta_m = int(m.group(2)) if delta_h >= 0 else -int(m.group(2))
+        return timezone(timedelta(hours=delta_h, minutes=delta_m))
+    try:
+        # in format 'Asia/Shanghai'
+        return pytz.timezone(tz_str)
+    except pytz.UnknownTimeZoneError:
+        return None
+
+
+@app.route("/feed.atom")
+def feed():
+    root_url = request.url_root.rstrip("/")
+    home_full_url = root_url + url_for(".index")
+    feed_full_url = root_url + url_for(".feed")
+    site = app.config["SITE_INFO"]
+    site_tz = s2tz(site["timezone"]) or timezone(timedelta())
+
+    fg = FeedGenerator()
+    fg.id(home_full_url)
+    fg.title(site.get("title", ""))
+    fg.subtitle(site.get("subtitle", ""))
+    if "author" in site:
+        fg.author(name=site["author"])
+    fg.link(href=home_full_url, rel="alternate")
+    fg.link(href=feed_full_url, rel="self")
+
+    posts = load_posts(meta_only=True)[:10]
+    for i in range(len(posts)):
+        p = load_post(posts[i]["filename"])
+        if not p:
+            continue
+        fe = fg.add_entry()
+        fe.id(root_url + p["url"])
+        fe.link(href=root_url + p["url"])
+        fe.title(p["title"])
+        fe.content(p["content"])
+        fe.published(p["created"].replace(tzinfo=site_tz))
+        fe.updated(p.get("updated", p["created"]).replace(tzinfo=site_tz))
+        if "author" in p:
+            fe.author(name=p["author"])
+
+    resp = make_response(fg.atom_str(pretty=True))
+    resp.content_type = "application/atom+xml; charset=utf-8"
+    return resp
