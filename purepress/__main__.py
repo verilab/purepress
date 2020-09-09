@@ -15,6 +15,7 @@ from . import (
     static_folder,
     theme_static_folder,
     pages_folder,
+    posts_folder,
     raw_folder,
     load_posts,
 )
@@ -31,6 +32,43 @@ echo_yellow = functools.partial(click.secho, fg="yellow")
 @click.version_option(version=__version__)
 def cli():
     pass
+
+
+DEFAULT_POST_TEMPLATE = """\
+---
+title: A demo {0}
+---
+
+This is a demo {0}.
+"""
+
+
+@cli.command("init", short_help="Initialize an instance.")
+def init_command():
+    if os.listdir():
+        echo_red("Current working directory is not empty.")
+        exit(1)
+    echo("Creating folders...", nl=False)
+    os.makedirs(posts_folder)
+    os.makedirs(pages_folder)
+    os.makedirs(static_folder)
+    os.makedirs(raw_folder)
+    echo_green("OK")
+    echo("Creating default config.py...", nl=False)
+    def_config_file = os.path.join(os.path.dirname(__file__), "default_config.py")
+    shutil.copy(def_config_file, "config.py")
+    echo_green("OK")
+    echo("Createing demo page...", nl=False)
+    with open(os.path.join("pages", "demo.md"), mode="w", encoding="utf-8") as f:
+        f.write(DEFAULT_POST_TEMPLATE.format("page"))
+    echo_green("OK")
+    echo("Createing demo post...", nl=False)
+    with open(
+        os.path.join("posts", "1970-01-01-demo.md"), mode="w", encoding="utf-8"
+    ) as f:
+        f.write(DEFAULT_POST_TEMPLATE.format("post"))
+    echo_green("OK")
+    echo_green("OK! Now you can install a theme and preview the site.")
 
 
 @cli.command("preview", short_help="Preview the site.")
@@ -66,6 +104,7 @@ def build_command(url_root):
     except Exception:
         traceback.print_exc()
         echo_red("Failed to build the site.")
+        exit(1)
 
 
 def build(client):
