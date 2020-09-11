@@ -45,14 +45,11 @@ This is a demo {0}.
 
 @cli.command("init", short_help="Initialize an instance.")
 def init_command():
-    if os.listdir():
-        echo_red("Current working directory is not empty.")
-        exit(1)
     echo("Creating folders...", nl=False)
-    os.makedirs(posts_folder)
-    os.makedirs(pages_folder)
-    os.makedirs(static_folder)
-    os.makedirs(raw_folder)
+    os.makedirs(posts_folder, exist_ok=True)
+    os.makedirs(pages_folder, exist_ok=True)
+    os.makedirs(static_folder, exist_ok=True)
+    os.makedirs(raw_folder, exist_ok=True)
     echo_green("OK")
     echo("Creating default config.py...", nl=False)
     def_config_file = os.path.join(os.path.dirname(__file__), "default_config.py")
