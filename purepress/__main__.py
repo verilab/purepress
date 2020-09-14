@@ -170,7 +170,7 @@ def build(client):
             f.write(res.data)
     echo_green("OK")
 
-    echo("Bulding categories...", nl=False)
+    echo("Building categories...", nl=False)
     categories = set(
         functools.reduce(lambda c, p: c + p.get("categories", []), posts, [])
     )
@@ -184,7 +184,7 @@ def build(client):
             f.write(res.data)
     echo_green("OK")
 
-    echo("Bulding tags...", nl=False)
+    echo("Building tags...", nl=False)
     tags = set(functools.reduce(lambda t, p: t + p.get("tags", []), posts, []))
     for tag in tags:
         tag_folder = os.path.join(build_tags_folder, tag)
@@ -196,7 +196,7 @@ def build(client):
             f.write(res.data)
     echo_green("OK")
 
-    echo("Bulding archive...", nl=False)
+    echo("Building archive...", nl=False)
     os.makedirs(build_archive_folder, exist_ok=True)
     with app.test_request_context():
         url = url_for(".archive")
