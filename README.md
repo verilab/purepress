@@ -14,7 +14,7 @@ mkdir my-blog
 cd my-blog
 
 purepress init  # init the blog
-git clone https://github.com/richardchien/purepress-theme-default.git theme  # install a theme
+git clone https://github.com/verilab/purepress-theme-default.git theme  # install a theme
 
 purepress preview  # preview the blog
 purepress build  # build the blog
