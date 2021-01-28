@@ -11,7 +11,7 @@ from flask import url_for
 from .__meta__ import __version__
 from . import (
     app,
-    instance_path,
+    root_folder,
     static_folder,
     theme_static_folder,
     pages_folder,
@@ -34,6 +34,17 @@ def cli():
     pass
 
 
+DEFAULT_PUREPRESS_TOML = """\
+[site]
+title = "My Blog"
+subtitle = "Here is my blog"
+author = "My Name"
+timezone = "Asia/Shanghai"
+
+[config]
+posts_per_index_page = 5
+"""
+
 DEFAULT_POST_TEMPLATE = """\
 ---
 title: A demo {0}
@@ -45,23 +56,28 @@ This is a demo {0}.
 
 @cli.command("init", short_help="Initialize an instance.")
 def init_command():
+    if os.listdir(root_folder):
+        echo_red(f'The instance folder "{root_folder}" is not empty')
+        exit(1)
     echo("Creating folders...", nl=False)
     os.makedirs(posts_folder, exist_ok=True)
     os.makedirs(pages_folder, exist_ok=True)
     os.makedirs(static_folder, exist_ok=True)
     os.makedirs(raw_folder, exist_ok=True)
     echo_green("OK")
-    echo("Creating default config.py...", nl=False)
-    def_config_file = os.path.join(os.path.dirname(__file__), "default_config.py")
-    shutil.copy(def_config_file, "config.py")
+    echo("Creating default purepress.toml...", nl=False)
+    with open(
+        os.path.join(root_folder, "purepress.toml"), mode="w", encoding="utf-8"
+    ) as f:
+        f.write(DEFAULT_PUREPRESS_TOML)
     echo_green("OK")
     echo("Createing demo page...", nl=False)
-    with open(os.path.join("pages", "demo.md"), mode="w", encoding="utf-8") as f:
+    with open(os.path.join(pages_folder, "demo.md"), mode="w", encoding="utf-8") as f:
         f.write(DEFAULT_POST_TEMPLATE.format("page"))
     echo_green("OK")
     echo("Createing demo post...", nl=False)
     with open(
-        os.path.join("posts", "1970-01-01-demo.md"), mode="w", encoding="utf-8"
+        os.path.join(posts_folder, "1970-01-01-demo.md"), mode="w", encoding="utf-8"
     ) as f:
         f.write(DEFAULT_POST_TEMPLATE.format("post"))
     echo_green("OK")
@@ -106,7 +122,7 @@ def build_command(url_root):
 
 def build(client):
     # prepare folder paths
-    build_folder = os.path.join(instance_path, "build")
+    build_folder = os.path.join(root_folder, "build")
     build_static_folder = os.path.join(build_folder, "static")
     build_static_theme_folder = os.path.join(build_static_folder, "theme")
     build_pages_folder = build_folder
@@ -147,7 +163,7 @@ def build(client):
             dst_path = os.path.join(build_pages_folder, dst_rel_path)
             rel_url = "/".join(os.path.split(dst_rel_path))
             with app.test_request_context():
-                url = url_for(".page", rel_url=rel_url)
+                url = url_for("page", rel_url=rel_url)
             res = client.get(url)
             with open(dst_path, "wb") as f:
                 f.write(res.data)
@@ -164,7 +180,7 @@ def build(client):
         os.makedirs(dst_dirname, exist_ok=True)
         dst_path = os.path.join(dst_dirname, "index.html")
         with app.test_request_context():
-            url = url_for(".post", year=year, month=month, day=day, name=name)
+            url = url_for("post", year=year, month=month, day=day, name=name)
         res = client.get(url)
         with open(dst_path, "wb") as f:
             f.write(res.data)
@@ -178,7 +194,7 @@ def build(client):
         category_folder = os.path.join(build_categories_folder, category)
         os.makedirs(category_folder, exist_ok=True)
         with app.test_request_context():
-            url = url_for(".category", name=category)
+            url = url_for("category", name=category)
         res = client.get(url)
         with open(os.path.join(category_folder, "index.html"), "wb") as f:
             f.write(res.data)
@@ -190,7 +206,7 @@ def build(client):
         tag_folder = os.path.join(build_tags_folder, tag)
         os.makedirs(tag_folder, exist_ok=True)
         with app.test_request_context():
-            url = url_for(".tag", name=tag)
+            url = url_for("tag", name=tag)
         res = client.get(url)
         with open(os.path.join(tag_folder, "index.html"), "wb") as f:
             f.write(res.data)
@@ -199,7 +215,7 @@ def build(client):
     echo("Building archive...", nl=False)
     os.makedirs(build_archive_folder, exist_ok=True)
     with app.test_request_context():
-        url = url_for(".archive")
+        url = url_for("archive")
     res = client.get(url)
     with open(os.path.join(build_archive_folder, "index.html"), "wb") as f:
         f.write(res.data)
@@ -207,7 +223,7 @@ def build(client):
 
     echo("Building index...", nl=False)
     with app.test_request_context():
-        url = url_for(".index")
+        url = url_for("index")
     res = client.get(url)
     with open(os.path.join(build_folder, "index.html"), "wb") as f:
         f.write(res.data)
@@ -216,7 +232,7 @@ def build(client):
         page_folder = os.path.join(build_index_page_folder, str(page_num))
         os.makedirs(page_folder, exist_ok=True)
         with app.test_request_context():
-            url = url_for(".index_page", page_num=page_num)
+            url = url_for("index_page", page_num=page_num)
         res = client.get(url)
         with open(os.path.join(page_folder, "index.html"), "wb") as f:
             f.write(res.data)
@@ -225,7 +241,7 @@ def build(client):
 
     echo("Building feed...", nl=False)
     with app.test_request_context():
-        url = url_for(".feed")
+        url = url_for("feed")
     res = client.get(url)
     with open(os.path.join(build_folder, "feed.atom"), "wb") as f:
         f.write(res.data)
@@ -233,7 +249,7 @@ def build(client):
 
     echo("Building 404...", nl=False)
     with app.test_request_context():
-        url = url_for(".page_not_found")
+        url = url_for("page_not_found")
     res = client.get(url)
     with open(os.path.join(build_folder, "404.html"), "wb") as f:
         f.write(res.data)

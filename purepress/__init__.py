@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 import pytz
+import toml
 import markdown.extensions
 import markdown.treeprocessors
 from markdown import Markdown
@@ -26,17 +27,24 @@ from werkzeug.security import safe_join
 from feedgen.feed import FeedGenerator
 
 # calculate some folder path
-instance_path = os.getenv("INSTANCE_PATH", os.getcwd())
-static_folder = os.path.join(instance_path, "static")
-template_folder = os.path.join(instance_path, "theme", "templates")
-theme_static_folder = os.path.join(instance_path, "theme", "static")
-posts_folder = os.path.join(instance_path, "posts")
-pages_folder = os.path.join(instance_path, "pages")
-raw_folder = os.path.join(instance_path, "raw")
+root_folder = os.getenv("PUREPRESS_INSTANCE", os.getcwd())
+static_folder = os.path.join(root_folder, "static")
+template_folder = os.path.join(root_folder, "theme", "templates")
+theme_static_folder = os.path.join(root_folder, "theme", "static")
+posts_folder = os.path.join(root_folder, "posts")
+pages_folder = os.path.join(root_folder, "pages")
+raw_folder = os.path.join(root_folder, "raw")
+
+# load configurations
+try:
+    purepress_config = toml.load(os.path.join(root_folder, "purepress.toml"))
+except FileNotFoundError:
+    purepress_config = {"site": {}, "config": {}}
+site, user_config = purepress_config["site"], purepress_config["config"]
 
 app = Flask(
     __name__,
-    instance_path=instance_path,
+    instance_path=root_folder,
     template_folder=template_folder,
     static_folder=static_folder,
     instance_relative_config=True,
@@ -50,10 +58,6 @@ theme_bp = Blueprint(
     static_folder=theme_static_folder,
 )
 app.register_blueprint(theme_bp)
-
-# load configurations
-app.config.from_object("purepress.default_config")
-app.config.from_pyfile("config.py", silent=True)
 
 # prepare markdown parser
 class HookImageSrcProcessor(markdown.treeprocessors.Treeprocessor):
@@ -73,10 +77,10 @@ class HookImageSrcExtension(markdown.extensions.Extension):
 md = Markdown(extensions=[GithubFlavoredMarkdownExtension(), HookImageSrcExtension()])
 
 
-# inject site info into template context
+# inject site and user_config into template context
 @app.context_processor
-def inject_site_object() -> Dict[str, Any]:
-    return {"site": app.config["SITE_INFO"]}
+def inject_objects() -> Dict[str, Any]:
+    return {"site": site, "user_config": user_config}
 
 
 def load_entry(fullpath: str, *, meta_only: bool = False) -> Optional[Dict[str, Any]]:
@@ -126,7 +130,7 @@ def load_post(filename: str, meta_only: bool = False) -> Optional[Dict[str, Any]
     # add some fields
     post["filename"] = filename
     post["url"] = url_for(
-        ".post",
+        "post",
         year=f"{year:0>4d}",
         month=f"{month:0>2d}",
         day=f"{day:0>2d}",
@@ -173,7 +177,7 @@ def load_page(rel_url: str) -> Optional[Dict[str, Any]]:
     page = load_entry(fullpath)
     if page is None:
         return None
-    page["url"] = url_for(".page", rel_url=rel_url)
+    page["url"] = url_for("page", rel_url=rel_url)
     # ensure *title* field
     if "title" not in page:
         name = os.path.splitext(os.path.basename(fullpath))[0]
@@ -208,7 +212,7 @@ def index():
 @templated("index")
 def index_page(page_num, *, from_index: bool = False):
     # do some calculation and handle unexpected cases
-    posts_per_page = app.config["POSTS_PER_PAGE_ON_INDEX"]
+    posts_per_page = user_config["posts_per_index_page"]
     posts = load_posts(meta_only=True)  # just load meta data quickly
     post_count = len(posts)
     page_count = (post_count + posts_per_page - 1) // posts_per_page
@@ -304,8 +308,8 @@ def s2tz(tz_str):
 @app.route("/feed.atom")
 def feed():
     root_url = request.url_root.rstrip("/")
-    home_full_url = root_url + url_for(".index")
-    feed_full_url = root_url + url_for(".feed")
+    home_full_url = root_url + url_for("index")
+    feed_full_url = root_url + url_for("feed")
     site = app.config["SITE_INFO"]
     site_tz = s2tz(site["timezone"]) or timezone(timedelta())
     # set feed info
