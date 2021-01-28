@@ -310,8 +310,7 @@ def feed():
     root_url = request.url_root.rstrip("/")
     home_full_url = root_url + url_for("index")
     feed_full_url = root_url + url_for("feed")
-    site = app.config["SITE_INFO"]
-    site_tz = s2tz(site["timezone"]) or timezone(timedelta())
+    site_tz = s2tz(site.get("timezone", "")) or timezone(timedelta())
     # set feed info
     feed_gen = FeedGenerator()
     feed_gen.id(home_full_url)
