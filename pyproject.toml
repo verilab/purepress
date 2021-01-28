@@ -6,7 +6,7 @@ description = "A simple static blog generator."
 license = "MIT"
 authors = ["Richard Chien <richardchienthebest@gmail.com>"]
 readme = "README.md"
-repository = "https://github.com/richardchien/purepress"
+repository = "https://github.com/verilab/purepress"
 keywords = ["Static Blog Generator", "Static Blog", "Blog", "Blog Engine"]
 classifiers = [
     "Development Status :: 4 - Beta",
