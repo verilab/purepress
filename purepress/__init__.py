@@ -150,13 +150,14 @@ def load_posts(*, meta_only: bool = False) -> List[Dict[str, Any]]:
         post_files = os.listdir(posts_folder)
     except FileNotFoundError:
         return []
-    posts = []
-    for post_file in post_files:
-        if not post_file.endswith(".md"):
-            continue
-        post = load_post(post_file, meta_only=meta_only)
-        if post:
-            posts.append(post)
+
+    def gen_posts():
+        for post_file in post_files:
+            if not post_file.endswith(".md"):
+                continue
+            yield load_post(post_file, meta_only=meta_only)
+
+    posts = list(filter(lambda x: x and not x.get("hide", False), gen_posts()))
     posts.sort(key=lambda x: x.get("created"), reverse=True)
     return posts
 
