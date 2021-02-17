@@ -331,7 +331,7 @@ def feed():
         feed_entry.id(root_url + p["url"])
         feed_entry.link(href=root_url + p["url"])
         feed_entry.title(p["title"])
-        feed_entry.content(p["content"])
+        feed_entry.content(p["content"], type="CDATA")
         feed_entry.published(p["created"].replace(tzinfo=site_tz))
         feed_entry.updated(p.get("updated", p["created"]).replace(tzinfo=site_tz))
         if "author" in p:
