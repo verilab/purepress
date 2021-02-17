@@ -25,6 +25,7 @@ from flask import (
 )
 from werkzeug.security import safe_join
 from feedgen.feed import FeedGenerator
+from html_toc import HtmlTocParser
 
 # calculate some folder path
 root_folder = os.getenv("PUREPRESS_INSTANCE", os.getcwd())
@@ -83,7 +84,9 @@ def inject_objects() -> Dict[str, Any]:
     return {"site": site, "user_config": user_config}
 
 
-def load_entry(fullpath: str, *, meta_only: bool = False) -> Optional[Dict[str, Any]]:
+def load_entry(
+    fullpath: str, *, meta_only: bool, parse_toc: bool
+) -> Optional[Dict[str, Any]]:
     # read frontmatter and content
     frontmatter, content = "", ""
     try:
@@ -110,10 +113,19 @@ def load_entry(fullpath: str, *, meta_only: bool = False) -> Optional[Dict[str, 
     # if should, convert markdown content to html
     if not meta_only:
         entry["content"] = md.convert(content)
+        if parse_toc:
+            parser = HtmlTocParser()
+            parser.feed(entry["content"])
+            entry["content"] = parser.html
+            depth = entry.get("toc_depth", user_config.get("toc_depth")) or 0
+            entry["toc"] = parser.toc(depth=depth)
+            entry["toc_html"] = parser.toc_html(depth=depth)
     return entry
 
 
-def load_post(filename: str, meta_only: bool = False) -> Optional[Dict[str, Any]]:
+def load_post(
+    filename: str, *, meta_only: bool = False, parse_toc: bool = False
+) -> Optional[Dict[str, Any]]:
     # parse the filename (yyyy-MM-dd-post-title.md)
     try:
         year, month, day, name = os.path.splitext(filename)[0].split("-", maxsplit=3)
@@ -124,7 +136,7 @@ def load_post(filename: str, meta_only: bool = False) -> Optional[Dict[str, Any]
     fullpath = safe_join(posts_folder, filename)
     if fullpath is None:
         return None
-    post = load_entry(fullpath, meta_only=meta_only)
+    post = load_entry(fullpath, meta_only=meta_only, parse_toc=parse_toc)
     if post is None:  # note that post may be {}
         return None
     # add some fields
@@ -162,7 +174,7 @@ def load_posts(*, meta_only: bool = False) -> List[Dict[str, Any]]:
     return posts
 
 
-def load_page(rel_url: str) -> Optional[Dict[str, Any]]:
+def load_page(rel_url: str, *, parse_toc: bool = False) -> Optional[Dict[str, Any]]:
     # convert relative url to full file path
     pathnames = rel_url.split("/")
     fullpath = safe_join(pages_folder, *pathnames)
@@ -175,7 +187,7 @@ def load_page(rel_url: str) -> Optional[Dict[str, Any]]:
     else:  # /foo/bar
         fullpath += ".md"
     # load page entry
-    page = load_entry(fullpath)
+    page = load_entry(fullpath, meta_only=False, parse_toc=parse_toc)
     if page is None:
         return None
     page["url"] = url_for("page", rel_url=rel_url)
@@ -248,7 +260,7 @@ def index_page(page_num, *, from_index: bool = False):
 @templated("post")
 def post(year: str, month: str, day: str, name: str):
     # use secure_filename to avoid filename attacks
-    post = load_post(f"{year}-{month}-{day}-{name}.md")
+    post = load_post(f"{year}-{month}-{day}-{name}.md", parse_toc=True)
     if not post:
         abort(404)
     return {"entry": post}
@@ -282,7 +294,7 @@ def tag(name: str):
 @app.route("/<path:rel_url>")
 @templated("page")
 def page(rel_url: str):
-    page = load_page(rel_url)
+    page = load_page(rel_url, parse_toc=True)
     if not page:
         return send_from_directory(raw_folder, rel_url)
     return {"entry": page}
