@@ -296,6 +296,8 @@ def tag(name: str):
 def page(rel_url: str):
     page = load_page(rel_url, parse_toc=True)
     if not page:
+        if rel_url.endswith("/"):
+            rel_url += "/index.html"
         return send_from_directory(raw_folder, rel_url)
     return {"entry": page}
 
