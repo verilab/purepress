@@ -41,7 +41,7 @@ try:
     purepress_config = toml.load(os.path.join(root_folder, "purepress.toml"))
 except FileNotFoundError:
     purepress_config = {"site": {}, "config": {}}
-site, user_config = purepress_config["site"], purepress_config["config"]
+site, config = purepress_config["site"], purepress_config["config"]
 
 app = Flask(
     __name__,
@@ -78,10 +78,10 @@ class HookImageSrcExtension(markdown.extensions.Extension):
 md = Markdown(extensions=[GithubFlavoredMarkdownExtension(), HookImageSrcExtension()])
 
 
-# inject site and user_config into template context
+# inject site and config into template context
 @app.context_processor
 def inject_objects() -> Dict[str, Any]:
-    return {"site": site, "user_config": user_config}
+    return {"global": {"site": site, "config": config}}
 
 
 def load_entry(
@@ -117,7 +117,7 @@ def load_entry(
             parser = HtmlTocParser()
             parser.feed(entry["content"])
             entry["content"] = parser.html
-            depth = entry.get("toc_depth", user_config.get("toc_depth")) or 0
+            depth = entry.get("toc_depth", config.get("toc_depth")) or 0
             entry["toc"] = parser.toc(depth=depth)
             entry["toc_html"] = parser.toc_html(depth=depth)
     return entry
@@ -225,7 +225,7 @@ def index():
 @templated("index")
 def index_page(page_num, *, from_index: bool = False):
     # do some calculation and handle unexpected cases
-    posts_per_page = user_config["posts_per_index_page"]
+    posts_per_page = config["posts_per_index_page"]
     posts = load_posts(meta_only=True)  # just load meta data quickly
     post_count = len(posts)
     page_count = (post_count + posts_per_page - 1) // posts_per_page
