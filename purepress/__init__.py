@@ -63,19 +63,49 @@ app.register_blueprint(theme_bp)
 # prepare markdown parser
 class HookImageSrcProcessor(markdown.treeprocessors.Treeprocessor):
     def run(self, root: etree.Element):
-        # TODO: hook all relative links
+        static_url = url_for("static", filename="")
         for el in root.iter("img"):
             src = el.get("src", "")
-            static_url = url_for("static", filename="", _external=True)
-            el.set("src", re.sub(r"^/static/", static_url, src))
+            if src.startswith("/static/"):
+                el.set("src", re.sub(r"^/static/", static_url, src))
 
 
-class HookImageSrcExtension(markdown.extensions.Extension):
+class HookLinkHrefProcessor(markdown.treeprocessors.Treeprocessor):
+    @staticmethod
+    def path_to_url(path: str) -> str:
+        root = url_for("index").rstrip("/")
+        url = path
+        if path.startswith("/posts/"):
+            # /posts/2021-08-23-hello-world.md -> /post/2021/08/23/hello-world/
+            url = re.sub(r"^/posts/", f"{root}/post/", url)
+            url = re.sub(r"-", "/", url, count=3)
+            url = re.sub(r"\.md$", "/", url)
+        elif path.startswith("/pages/"):
+            # /pages/about/ -> /about/
+            # /pages/about/index.md -> /about/
+            # /pages/foo/bar.md -> /foo/bar.html
+            url = re.sub(r"^/pages/", f"{root}/", url)
+            url = re.sub(r"index\.md$", "", url)
+            url = re.sub(r"\.md$", ".html", url)
+        elif path.startswith("/raw/"):
+            # /raw/foo/baz.html -> /foo/baz.html
+            url = re.sub(r"^/raw/", f"{root}/", url)
+        return url
+
+    def run(self, root: etree.Element):
+        for el in root.iter("a"):
+            href = el.get("href", "")
+            if href.startswith("/"):
+                el.set("href", self.path_to_url(href))
+
+
+class Extension(markdown.extensions.Extension):
     def extendMarkdown(self, md) -> None:
         md.treeprocessors.register(HookImageSrcProcessor(), "hook-image-src", 5)
+        md.treeprocessors.register(HookLinkHrefProcessor(), "hook-link-href", 5)
 
 
-md = Markdown(extensions=[GithubFlavoredMarkdownExtension(), HookImageSrcExtension()])
+md = Markdown(extensions=[GithubFlavoredMarkdownExtension(), Extension()])
 
 
 # inject site and config into template context
