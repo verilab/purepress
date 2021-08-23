@@ -155,9 +155,11 @@ def build(client):
 
     echo("Building custom pages...", nl=False)
     for dirname, _, files in os.walk(pages_folder):
+        if os.path.basename(dirname).startswith("."):
+            continue
         rel_dirname = os.path.relpath(dirname, pages_folder)
         os.makedirs(os.path.join(build_pages_folder, rel_dirname), exist_ok=True)
-        for file in files:
+        for file in filter(lambda f: not f.startswith("."), files):
             rel_path = os.path.join(rel_dirname, file)
             dst_rel_path = re.sub(r".md$", ".html", rel_path)
             dst_path = os.path.join(build_pages_folder, dst_rel_path)
