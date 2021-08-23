@@ -104,8 +104,12 @@ def preview_command(host, port, debug):
 )
 def build_command(url_root):
     res = urlparse(url_root)
-    app.config["PREFERRED_URL_SCHEME"] = res.scheme
-    app.config["SERVER_NAME"] = res.netloc
+    app.config["PREFERRED_URL_SCHEME"] = res.scheme or "http"
+    app.config["SERVER_NAME"] = res.netloc or "localhost"
+    if not res.netloc:
+        echo_yellow(
+            'WARNING: The url root does not contain a valid server name, "localhost" will be used.'
+        )
     app.config["APPLICATION_ROOT"] = res.path or "/"
     # mark as 'BUILDING' status, so that templates can react properly,
     app.config["BUILDING"] = True
