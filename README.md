@@ -20,4 +20,4 @@ purepress preview  # preview the blog
 purepress build  # build the blog
 ```
 
-See [richardchien/project-rc](https://github.com/richardchien/project-rc) for more usage.
+See [richardchien/blog](https://github.com/richardchien/blog) for more usage.
