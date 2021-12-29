@@ -105,7 +105,7 @@ class Extension(markdown.extensions.Extension):
         md.treeprocessors.register(HookLinkHrefProcessor(), "hook-link-href", 5)
 
 
-md = Markdown(extensions=[GithubFlavoredMarkdownExtension(), Extension()])
+md = Markdown(extensions=[GithubFlavoredMarkdownExtension(), Extension(), "footnotes"])
 
 
 # inject site and config into template context
