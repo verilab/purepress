@@ -105,7 +105,11 @@ class Extension(markdown.extensions.Extension):
         md.treeprocessors.register(HookLinkHrefProcessor(), "hook-link-href", 5)
 
 
-md = Markdown(extensions=[GithubFlavoredMarkdownExtension(), Extension(), "footnotes"])
+_md = Markdown(extensions=[GithubFlavoredMarkdownExtension(), Extension(), "footnotes"])
+
+def markdown_convert(text: str) -> str:
+    _md.reset()
+    return _md.convert(text)
 
 
 # inject site and config into template context
@@ -142,7 +146,7 @@ def load_entry(
             entry[k] = [entry[k]]
     # if should, convert markdown content to html
     if not meta_only:
-        entry["content"] = md.convert(content)
+        entry["content"] = markdown_convert(content)
         if parse_toc:
             parser = HtmlTocParser()
             parser.feed(entry["content"])
