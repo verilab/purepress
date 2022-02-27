@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "purepress"
-version = "0.6.2"
+version = "0.6.3"
 description = "A simple static blog generator."
 license = "MIT"
 authors = ["Richard Chien <richardchienthebest@gmail.com>"]
@@ -31,6 +31,7 @@ Markdown = "~3.2.2"
 py-gfm = "~1.0.0"
 toml = "~0.10.2"
 html-toc = "~0.1.1"
+MarkupSafe = "~2.0.1"
 
 [tool.poetry.dev-dependencies]
 black = "~20.8b1"
