@@ -249,7 +249,7 @@ def build(client):
     with app.test_request_context():
         url = url_for("feed")
     res = client.get(url)
-    with open(os.path.join(build_folder, "feed.atom"), "wb") as f:
+    with open(os.path.join(build_folder, "feed.xml"), "wb") as f:
         f.write(res.data)
     echo_green("OK")
 

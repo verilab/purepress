@@ -107,6 +107,7 @@ class Extension(markdown.extensions.Extension):
 
 _md = Markdown(extensions=[GithubFlavoredMarkdownExtension(), Extension(), "footnotes"])
 
+
 def markdown_convert(text: str) -> str:
     _md.reset()
     return _md.convert(text)
@@ -354,7 +355,7 @@ def s2tz(tz_str):
         return None
 
 
-@app.route("/feed.atom")
+@app.route("/feed.xml")
 def feed():
     root_url = request.url_root.rstrip("/")
     home_full_url = root_url + url_for("index")
@@ -385,6 +386,6 @@ def feed():
         if "author" in p:
             feed_entry.author(name=p["author"])
     # make http response
-    resp = make_response(feed_gen.atom_str(pretty=True))
-    resp.content_type = "application/atom+xml; charset=utf-8"
+    resp = make_response(feed_gen.rss_str(pretty=True))
+    resp.content_type = "application/rss+xml"
     return resp
