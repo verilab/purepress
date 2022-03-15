@@ -86,11 +86,11 @@ def init_command():
 @cli.command("preview", short_help="Preview the site.")
 @click.option("--host", "-h", default="127.0.0.1", help="Host to preview the site.")
 @click.option("--port", "-p", default=8080, help="Port to preview the site.")
-@click.option("--debug", is_flag=True, default=False, help="Preview in debug mode.")
-def preview_command(host, port, debug):
-    app.debug = debug
+@click.option("--no-debug", is_flag=True, default=False, help="Do not preview in debug mode.")
+def preview_command(host, port, no_debug):
+    app.config["ENV"] = "development"
     app.config["TEMPLATES_AUTO_RELOAD"] = True
-    app.run(host=host, port=port, debug=debug)
+    app.run(host=host, port=port, debug=not no_debug, use_reloader=False)
 
 
 @cli.command("build", short_help="Build the site.")
@@ -255,11 +255,3 @@ def copy_folder_content(src, dst):
             shutil.copytree(file_path, dst_file_path)
         else:
             shutil.copy(file_path, dst_file_path)
-
-
-def main():
-    cli.main()
-
-
-if __name__ == "__main__":
-    main()
