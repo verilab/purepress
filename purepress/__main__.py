@@ -23,7 +23,6 @@ from . import (
 
 echo = click.echo
 echo_green = functools.partial(click.secho, fg="green")
-echo_blue = functools.partial(click.secho, fg="blue")
 echo_red = functools.partial(click.secho, fg="red")
 echo_yellow = functools.partial(click.secho, fg="yellow")
 
@@ -66,9 +65,7 @@ def init_command():
     os.makedirs(raw_folder, exist_ok=True)
     echo_green("OK")
     echo("Creating default purepress.toml...", nl=False)
-    with open(
-        os.path.join(root_folder, "purepress.toml"), mode="w", encoding="utf-8"
-    ) as f:
+    with open(os.path.join(root_folder, "purepress.toml"), mode="w", encoding="utf-8") as f:
         f.write(DEFAULT_PUREPRESS_TOML)
     echo_green("OK")
     echo("Createing demo page...", nl=False)
@@ -76,9 +73,7 @@ def init_command():
         f.write(DEFAULT_POST_TEMPLATE.format("page"))
     echo_green("OK")
     echo("Createing demo post...", nl=False)
-    with open(
-        os.path.join(posts_folder, "1970-01-01-demo.md"), mode="w", encoding="utf-8"
-    ) as f:
+    with open(os.path.join(posts_folder, "1970-01-01-demo.md"), mode="w", encoding="utf-8") as f:
         f.write(DEFAULT_POST_TEMPLATE.format("post"))
     echo_green("OK")
     echo_green("OK! Now you can install a theme and preview the site.")
@@ -107,9 +102,7 @@ def build_command(url_root):
     app.config["PREFERRED_URL_SCHEME"] = res.scheme or "http"
     app.config["SERVER_NAME"] = res.netloc or "localhost"
     if not res.netloc:
-        echo_yellow(
-            'WARNING: The url root does not contain a valid server name, "localhost" will be used.'
-        )
+        echo_yellow('The url root does not contain a valid server name, "localhost" will be used.')
     app.config["APPLICATION_ROOT"] = res.path or "/"
     # mark as 'BUILDING' status, so that templates can react properly,
     app.config["BUILDING"] = True
@@ -193,9 +186,7 @@ def build(client):
     echo_green("OK")
 
     echo("Building categories...", nl=False)
-    categories = set(
-        functools.reduce(lambda c, p: c + p.get("categories", []), posts, [])
-    )
+    categories = set(functools.reduce(lambda c, p: c + p.get("categories", []), posts, []))
     for category in categories:
         category_folder = os.path.join(build_categories_folder, category)
         os.makedirs(category_folder, exist_ok=True)

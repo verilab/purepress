@@ -119,9 +119,7 @@ def inject_objects() -> Dict[str, Any]:
     return {"global": {"site": site, "config": config}}
 
 
-def load_entry(
-    fullpath: str, *, meta_only: bool, parse_toc: bool
-) -> Optional[Dict[str, Any]]:
+def load_entry(fullpath: str, *, meta_only: bool, parse_toc: bool) -> Optional[Dict[str, Any]]:
     # read frontmatter and content
     frontmatter, content = "", ""
     try:
@@ -158,9 +156,7 @@ def load_entry(
     return entry
 
 
-def load_post(
-    filename: str, *, meta_only: bool = False, parse_toc: bool = False
-) -> Optional[Dict[str, Any]]:
+def load_post(filename: str, *, meta_only: bool = False, parse_toc: bool = False) -> Optional[Dict[str, Any]]:
     # parse the filename (yyyy-MM-dd-post-title.md)
     try:
         year, month, day, name = os.path.splitext(filename)[0].split("-", maxsplit=3)
@@ -311,18 +307,14 @@ def archive():
 @app.route("/category/<name>/")
 @templated("archive")
 def category(name: str):
-    posts = list(
-        filter(lambda p: name in p.get("categories", []), load_posts(meta_only=True))
-    )
+    posts = list(filter(lambda p: name in p.get("categories", []), load_posts(meta_only=True)))
     return {"entries": posts, "archive": {"type": "Category", "name": name}}
 
 
 @app.route("/tag/<name>/")
 @templated("archive")
 def tag(name: str):
-    posts = list(
-        filter(lambda p: name in p.get("tags", []), load_posts(meta_only=True))
-    )
+    posts = list(filter(lambda p: name in p.get("tags", []), load_posts(meta_only=True)))
     return {"entries": posts, "archive": {"type": "Tag", "name": name}}
 
 
