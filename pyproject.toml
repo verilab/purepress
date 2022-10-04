@@ -19,7 +19,7 @@ classifiers = [
 purepress = "purepress.__main__:cli.main"
 
 [tool.poetry.dependencies]
-python = ">=3.6,<3.10"
+python = ">=3.6,<3.11"
 Werkzeug = "~1.0.1"
 Flask = "~1.1.2"
 PyYAML = "~5.4.1"
