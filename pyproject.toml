@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "purepress"
-version = "0.9.0"
+version = "0.9.1"
 description = "A simple static blog generator."
 license = "MIT"
 authors = ["Richard Chien <richardchienthebest@gmail.com>"]
@@ -20,6 +20,7 @@ purepress = "purepress.__main__:cli.main"
 
 [tool.poetry.dependencies]
 python = ">=3.6,<3.11"
+importlib-metadata = "<5.0"
 Werkzeug = "~1.0.1"
 Flask = "~1.1.2"
 PyYAML = "~5.4.1"
