@@ -101,17 +101,18 @@ def preview_command(host, port, no_debug):
 )
 def build_command(url_root):
     res = urlparse(url_root)
+    app_root = res.path or "/"
     app.config["PREFERRED_URL_SCHEME"] = res.scheme or "http"
     app.config["SERVER_NAME"] = res.netloc or "localhost"
     if not res.netloc:
         echo_yellow('The url root does not contain a valid server name, "localhost" will be used.')
-    app.config["APPLICATION_ROOT"] = res.path or "/"
+    app.config["APPLICATION_ROOT"] = app_root
     # mark as 'BUILDING' status, so that templates can react properly,
     app.config["BUILDING"] = True
 
     try:
         with app.test_client() as client:
-            build(client)
+            build(lambda url: client.get(re.sub(r"^" + app_root, "/", url)))
         echo_green('OK! Now you can find the built site in the "build" folder.')
     except Exception:
         traceback.print_exc()
@@ -119,7 +120,7 @@ def build_command(url_root):
         exit(1)
 
 
-def build(client):
+def build(get):
     # prepare folder paths
     build_folder = os.path.join(root_folder, "build")
     build_static_folder = os.path.join(build_folder, "static")
@@ -161,7 +162,7 @@ def build(client):
                 rel_url = "/".join(os.path.split(dst_rel_path))
                 with app.test_request_context():
                     url = url_for("page", rel_url=rel_url)
-                res = client.get(url)
+                res = get(url)
                 with open(dst_path, "wb") as f:
                     f.write(res.data)
 
@@ -177,7 +178,7 @@ def build(client):
             dst_path = os.path.join(dst_dirname, "index.html")
             with app.test_request_context():
                 url = url_for("post", year=year, month=month, day=day, name=name)
-            res = client.get(url)
+            res = get(url)
             with open(dst_path, "wb") as f:
                 f.write(res.data)
 
@@ -188,7 +189,7 @@ def build(client):
             os.makedirs(category_folder, exist_ok=True)
             with app.test_request_context():
                 url = url_for("category", name=category)
-            res = client.get(url)
+            res = get(url)
             with open(os.path.join(category_folder, "index.html"), "wb") as f:
                 f.write(res.data)
 
@@ -199,7 +200,7 @@ def build(client):
             os.makedirs(tag_folder, exist_ok=True)
             with app.test_request_context():
                 url = url_for("tag", name=tag)
-            res = client.get(url)
+            res = get(url)
             with open(os.path.join(tag_folder, "index.html"), "wb") as f:
                 f.write(res.data)
 
@@ -207,23 +208,25 @@ def build(client):
         os.makedirs(build_archive_folder, exist_ok=True)
         with app.test_request_context():
             url = url_for("archive")
-        res = client.get(url)
+        res = get(url)
         with open(os.path.join(build_archive_folder, "index.html"), "wb") as f:
             f.write(res.data)
 
     with step("Building index"):
         with app.test_request_context():
             url = url_for("index")
-        res = client.get(url)
+        res = get(url)
         with open(os.path.join(build_folder, "index.html"), "wb") as f:
             f.write(res.data)
         page_num = 2
-        while res.status_code != 404:
+        while True:
             page_folder = os.path.join(build_index_page_folder, str(page_num))
             os.makedirs(page_folder, exist_ok=True)
             with app.test_request_context():
                 url = url_for("index_page", page_num=page_num)
-            res = client.get(url)
+            res = get(url)
+            if res.status_code != 200:
+                break
             with open(os.path.join(page_folder, "index.html"), "wb") as f:
                 f.write(res.data)
             page_num += 1
@@ -231,14 +234,14 @@ def build(client):
     with step("Building feed"):
         with app.test_request_context():
             url = url_for("feed")
-        res = client.get(url)
+        res = get(url)
         with open(os.path.join(build_folder, "feed.xml"), "wb") as f:
             f.write(res.data)
 
     with step("Building 404"):
         with app.test_request_context():
             url = url_for("page_not_found")
-        res = client.get(url)
+        res = get(url)
         with open(os.path.join(build_folder, "404.html"), "wb") as f:
             f.write(res.data)
 
