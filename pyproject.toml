@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "purepress"
-version = "0.9.1"
+version = "0.9.2"
 description = "A simple static blog generator."
 license = "MIT"
 authors = ["Richard Chien <richardchienthebest@gmail.com>"]
