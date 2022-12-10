@@ -7,7 +7,7 @@
 
 ## Usage
 
-```bash
+```sh
 pip install purepress
 
 mkdir my-blog
@@ -20,4 +20,22 @@ purepress preview  # preview the blog
 purepress build  # build the blog
 ```
 
-See [richardchien/blog](https://github.com/richardchien/blog) for more usage.
+See [richardchien/blog](https://github.com/richardchien/blog) for more.
+
+## Minimality
+
+```sh
+❯ cloc purepress
+       3 text files.
+       3 unique files.
+       3 files ignored.
+
+github.com/AlDanial/cloc v 1.94  T=0.01 s (346.3 files/s, 74444.9 lines/s)
+-------------------------------------------------------------------------------
+Language                     files          blank        comment           code
+-------------------------------------------------------------------------------
+Python                           3             91             51            503
+-------------------------------------------------------------------------------
+SUM:                             3             91             51            503
+-------------------------------------------------------------------------------
+```
